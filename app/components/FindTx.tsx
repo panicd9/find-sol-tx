@@ -1,6 +1,18 @@
+"use client";
 // FindTx.tsx
 import React from 'react';
 import "./findTx.css";
+import 'dotenv/config';
+
+const stablecoinMints: { [key: string]: string } = {
+    USDC: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
+    USDT: 'Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB',
+};
+
+const mintToSymbol: { [key: string]: string } = {
+    'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v': 'USDC',
+    'Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB': 'USDT',
+};
 
 let mockTxs = [
     {
@@ -129,6 +141,73 @@ function shorten(longString: string): string {
     return `${longString.slice(0, 4)}...${longString.slice(-4)}`;
 }
 
+function copyToClipboard(text: string){
+    navigator.clipboard.writeText(text);
+}
+
+async function getTokenSymbol(mint: string): Promise<string> {
+    if (mintToSymbol[mint] !== undefined) {
+        return mintToSymbol[mint];
+    } else {
+        const response = await fetch(`https://mainnet.helius-rpc.com/?api-key=${process.env.NEXT_PUBLIC_API_KEY}`, {
+            method: 'POST',
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+                "jsonrpc": "2.0",
+                "id": "test",
+                "method": "getAsset",
+                "params": {
+                    "id": mint
+                }
+            }),
+        });
+
+        // Correctly await the response before calling .json()
+        const data = await response.json();
+
+        console.log(data);
+
+        // Ensure response structure is valid before accessing properties
+        return data?.result.content.metadata.symbol || 'UNKNOWN';
+    }
+}
+
+function timeAgo(timestamp) {
+    const now = Date.now();
+    const diffInSeconds = Math.floor((now - timestamp * 1000) / 1000); // Convert Unix timestamp to seconds
+    const diffInMinutes = Math.floor(diffInSeconds / 60);
+    const diffInHours = Math.floor(diffInMinutes / 60);
+    const diffInDays = Math.floor(diffInHours / 24);
+    const diffInMonths = Math.floor(diffInDays / 30); // Approximate months as 30 days
+    const diffInYears = Math.floor(diffInDays / 365); // Approximate years as 365 days
+
+    if (diffInYears > 0) {
+        return `${diffInYears} year${diffInYears > 1 ? 's' : ''} ago`;
+    } else if (diffInMonths > 0) {
+        return `${diffInMonths} month${diffInMonths > 1 ? 's' : ''} ago`;
+    } else if (diffInDays > 0) {
+        return `${diffInDays} day${diffInDays > 1 ? 's' : ''} ago`;
+    } else if (diffInHours > 0) {
+        return `${diffInHours} hour${diffInHours > 1 ? 's' : ''} ago`;
+    } else if (diffInMinutes > 0) {
+        return `${diffInMinutes} minute${diffInMinutes > 1 ? 's' : ''} ago`;
+    } else {
+        return `${diffInSeconds} second${diffInSeconds > 1 ? 's' : ''} ago`;
+    }
+}
+function formatTimestamp(timestamp) {
+    const date = new Date(timestamp * 1000); // Convert Unix timestamp to milliseconds
+    const day = String(date.getDate()).padStart(2, '0'); // Day with leading zero if necessary
+    const month = String(date.getMonth() + 1).padStart(2, '0'); // Month with leading zero if necessary
+    const year = date.getFullYear(); // Full year
+    const hours = String(date.getHours()).padStart(2, '0'); // Hours with leading zero
+    const minutes = String(date.getMinutes()).padStart(2, '0'); // Minutes with leading zero
+    const seconds = String(date.getSeconds()).padStart(2, '0'); // Seconds with leading zero
+
+    return `${day}.${month}.${year}. ${hours}:${minutes}:${seconds}`;
+}
 
 
 const FindTx = () => {
@@ -139,13 +218,13 @@ const FindTx = () => {
             <h2>Transaction Table</h2>
             <ul className="responsive-table">
                 <li className="table-header">
-                    <div className="col col-1">Signature</div>
-                    <div className="col col-2">Time</div>
-                    <div className="col col-3">Action</div>
-                    <div className="col col-4">From</div>
-                    <div className="col col-5">To</div>
-                    <div className="col col-6">Amount</div>
-                    <div className="col col-7">Token</div>
+                    <div className="col" style={{position:"absolute", left:"3%"}}>Signature</div>
+                    <div className="col" style={{position:"absolute", left:"19%"}}>Time</div>
+                    <div className="col" style={{position:"absolute", left:"31%"}}>Action</div>
+                    <div className="col" style={{position:"absolute", left:"46%"}}>From</div>
+                    <div className="col" style={{position:"absolute", left:"62%"}}>To</div>
+                    <div className="col" style={{position:"absolute", left:"74%"}}>Amount</div>
+                    <div className="col" style={{position:"absolute", left:"90%"}}>Token</div>
                 </li>
 
                 {mockTxs.map((tx, index) => {
@@ -155,28 +234,47 @@ const FindTx = () => {
                     }
                     return (
                         <li className={`table-row ${isAlternate ? 'alternate-row' : ''}`} key={index}>
-                            <div className="col col-1" data-label="Signature">
-                                {shorten(tx.signature)}
+                            <div className="col col-1-1" data-label="Signature">
+                                <div className='col-1'>
+                                    <a href={`https://www.solscan.io/tx/${tx.signature}`} className='signatureLink'>{shorten(tx.signature)}</a>
+                                    <img src="/copy.png" alt="" className='copyImage' onClick={() => copyToClipboard(tx.signature)}/>
+                                    <div className="tooltip">{tx.signature}</div>
+                                </div>
                             </div>
-                            <div className="col col-2" data-label="Time">
-                                {tx.time}
+                            <div className='col col-2-1'>
+                                <div className="col-2" data-label="Time">
+                                    <div>{timeAgo(tx.time)}</div>
+                                    <div className='tooltip tooltipTime'>{formatTimestamp(tx.time)}</div>
+                                </div>
                             </div>
                             <div className="col col-3" data-label="Action">
                                 {tx.action}
                             </div>
-                            <div className="col col-4" data-label="From">
-                                {shorten(tx.from) || "N/A"}
+                            <div className="col col-4-1" data-label="From">
+                                <div className='col-4'>
+                                    <a href={`https://www.solscan.io/account/${tx.from}`} className='signatureLink'>{shorten(tx.from)}</a>
+                                    <img src="/copy.png" alt="" className='copyImage' onClick={() => copyToClipboard(tx.from)}/>
+                                    <div className="tooltip tooltipFrom">{tx.from}</div>
+                                </div>
                             </div>
-                            <div className="col col-5" data-label="To">
-                                {shorten(tx.to) || "N/A"}
+                            <div className="col col-5-1" data-label="To">
+                                <div className='col-5'>
+                                    <a href={`https://www.solscan.io/account/${tx.to}`} className='signatureLink'>{shorten(tx.to)}</a>
+                                    <img src="/copy.png" alt="" className='copyImage' onClick={() => copyToClipboard(tx.to)}/>
+                                    <div className="tooltip tooltipTo">{tx.to}</div>
+                                </div>
                             </div>
                             <div className="col col-6" data-label="Amount">
                                 {tx.amount
-                                    ? `${parseFloat(tx.amount) / Math.pow(10, tx.decimals)}`
+                                    ? `${parseFloat((parseFloat(tx.amount) / Math.pow(10, tx.decimals)).toFixed(5))}`
                                     : "N/A"}
                             </div>
-                            <div className="col col-7" data-label="Token">
-                                {shorten(tx.token)}
+                            <div className="col col-7-1" data-label="Token">
+                                <div className='col-7'>
+                                    <a href={`https://www.solscan.io/account/${tx.token}`} className='signatureLink'>{shorten(tx.token)}</a>
+                                    <img src="/copy.png" alt="" className='copyImage' onClick={() => copyToClipboard(tx.token)}/>
+                                    <div className="tooltip tooltipToken">{getTokenSymbol(tx.token)}</div>
+                                </div>
                             </div>
                         </li>
                     );
